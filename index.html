@@ -1,0 +1,788 @@
+<!doctype html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+    <title>Pequena Aventura</title>
+    <style>
+        * {
+            box-sizing: border-box
+        }
+        
+        html,
+        body {
+            margin: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+            background: #dfe9e1;
+            color: #26352d
+        }
+        
+        button {
+            font: inherit;
+            border: 0;
+            cursor: pointer
+        }
+        
+        .stage {
+            position: relative;
+            width: min(1200px, 100vw);
+            height: min(700px, 100vh);
+            margin: auto;
+            overflow: hidden;
+            background: #dce8df
+        }
+        
+        canvas {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            display: block
+        }
+        
+        .screen {
+            position: absolute;
+            inset: 0;
+            z-index: 20;
+            display: none;
+            place-items: center;
+            padding: 20px;
+            background: rgba(246, 248, 241, .96)
+        }
+        
+        .screen.active {
+            display: grid
+        }
+        
+        .panel {
+            width: min(900px, 94%);
+            max-height: 92%;
+            overflow: auto;
+            padding: 30px;
+            border-radius: 28px;
+            background: #fffdf8;
+            box-shadow: 0 20px 60px #4050442b
+        }
+        
+        h1 {
+            font-size: clamp(38px, 6vw, 68px);
+            margin: 0 0 12px
+        }
+        
+        h2 {
+            font-size: 36px;
+            margin: 0 0 8px
+        }
+        
+        .muted {
+            color: #718078;
+            line-height: 1.5
+        }
+        
+        .menu,
+        .actions {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-top: 20px
+        }
+        
+        .btn {
+            padding: 14px 18px;
+            border-radius: 15px;
+            background: #edf1eb;
+            font-weight: 700
+        }
+        
+        .primary {
+            background: #71977d;
+            color: #fff
+        }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-top: 18px
+        }
+        
+        .card {
+            padding: 18px;
+            border-radius: 18px;
+            background: #f0f3ed;
+            text-align: left;
+            min-height: 110px
+        }
+        
+        .card:disabled {
+            opacity: .45;
+            cursor: not-allowed
+        }
+        
+        .gameui {
+            position: absolute;
+            inset: 0;
+            z-index: 10;
+            pointer-events: none;
+            display: none
+        }
+        
+        .top {
+            display: flex;
+            gap: 10px;
+            padding: 12px
+        }
+        
+        .hud,
+        .pause,
+        .lname {
+            background: #fffdf8e8;
+            border-radius: 14px;
+            padding: 10px 13px;
+            pointer-events: auto
+        }
+        
+        .hud {
+            min-width: 230px
+        }
+        
+        .stat {
+            display: flex;
+            gap: 7px;
+            align-items: center;
+            font-size: 12px
+        }
+        
+        .stat+.stat {
+            margin-top: 6px
+        }
+        
+        .bar {
+            height: 8px;
+            flex: 1;
+            background: #e1e5df;
+            border-radius: 9px;
+            overflow: hidden
+        }
+        
+        .fill {
+            height: 100%;
+            width: 100%;
+            border-radius: 9px
+        }
+        
+        .hp {
+            background: #b8756d
+        }
+        
+        .st {
+            background: #739b80
+        }
+        
+        .lname {
+            margin-left: auto;
+            height: max-content;
+            font-size: 12px;
+            font-weight: 700
+        }
+        
+        .mobile {
+            position: absolute;
+            inset: 0;
+            pointer-events: none
+        }
+        
+        .pad {
+            position: absolute;
+            bottom: 18px;
+            display: flex;
+            gap: 9px;
+            pointer-events: auto
+        }
+        
+        .pad.left {
+            left: 15px
+        }
+        
+        .pad.right {
+            right: 15px
+        }
+        
+        .touch {
+            width: 62px;
+            height: 62px;
+            border-radius: 18px;
+            background: #fffdf8c7;
+            font-weight: 800;
+            touch-action: none;
+            user-select: none
+        }
+        
+        .run {
+            width: 78px;
+            font-size: 11px
+        }
+        
+        .center {
+            text-align: center
+        }
+        
+        .note {
+            margin-top: 14px;
+            padding: 12px;
+            border-radius: 14px;
+            background: #edf3ed;
+            font-size: 12px
+        }
+        
+        .char {
+            font-size: 42px
+        }
+        
+        .completeTitle {
+            margin-top: 5px
+        }
+        
+        @media(max-width:650px) {
+            .grid {
+                grid-template-columns: 1fr
+            }
+            .panel {
+                padding: 22px
+            }
+            .lname {
+                display: none
+            }
+            .hud {
+                min-width: 185px
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="stage"><canvas id="game" width="1200" height="700"></canvas>
+        <section id="hub" class="screen active">
+            <div class="panel"><small>AVENTURA 2D</small>
+                <h1>Pequena Aventura</h1>
+                <p class="muted">Escolha seu personagem, atravesse cinco lugares e supere os desafios.</p>
+                <div class="menu"><button class="btn primary" id="play">▶ Jogar</button><button class="btn" id="charsBtn">◉ Personagens</button><button class="btn" id="levelsBtn">◇ Fases</button></div>
+                <div class="note">PC: A/D ou ←/→ · Espaço/W: pular · Shift: correr · P: pausar</div>
+            </div>
+        </section>
+        <section id="chars" class="screen">
+            <div class="panel">
+                <h2>Personagens</h2>
+                <p class="muted">Escolha seu personagem.</p>
+                <div class="grid" id="charGrid"></div>
+                <div class="actions"><button class="btn" id="charBack">Voltar</button></div>
+            </div>
+        </section>
+        <section id="levels" class="screen">
+            <div class="panel">
+                <h2>Fases</h2>
+                <p class="muted">Complete uma fase para liberar a próxima.</p>
+                <div class="grid" id="levelGrid"></div>
+                <div class="actions"><button class="btn" id="levelsBack">Voltar</button></div>
+            </div>
+        </section>
+        <section id="pause" class="screen">
+            <div class="panel center">
+                <h2>Pausado</h2>
+                <p class="muted">Continue quando quiser.</p>
+                <div class="actions" style="justify-content:center"><button class="btn" id="resume">Continuar</button><button class="btn" id="pauseHub">Hub</button></div>
+            </div>
+        </section>
+        <section id="over" class="screen">
+            <div class="panel center">
+                <h2>Você ficou sem vida</h2>
+                <p class="muted">Tente novamente.</p>
+                <div class="actions" style="justify-content:center"><button class="btn primary" id="retry">Tentar novamente</button><button class="btn" id="overHub">Hub</button></div>
+            </div>
+        </section>
+        <section id="complete" class="screen">
+            <div class="panel center">
+                <h2 class="completeTitle" id="completeTitle">Fase concluída!</h2>
+                <p class="muted" id="completeText"></p>
+                <div class="actions" style="justify-content:center"><button class="btn" id="completeHub">Hub</button><button class="btn primary" id="next">Próxima fase</button></div>
+            </div>
+        </section>
+        <div id="gameUI" class="gameui">
+            <div class="top">
+                <div class="hud">
+                    <div class="stat">♥
+                        <div class="bar">
+                            <div id="hp" class="fill hp"></div>
+                        </div><span id="hpN">100</span></div>
+                    <div class="stat">⚡
+                        <div class="bar">
+                            <div id="st" class="fill st"></div>
+                        </div><span id="stN">100</span></div>
+                </div><button class="pause" id="pauseBtn">Ⅱ Pausar</button>
+                <div class="lname" id="lname"></div>
+            </div>
+            <div class="mobile">
+                <div class="pad left"><button class="touch" data-k="left">◀</button><button class="touch" data-k="right">▶</button></div>
+                <div class="pad right"><button class="touch run" data-k="run">CORRER</button><button class="touch" data-k="jump">↑</button></div>
+            </div>
+        </div>
+    </div>
+    <script>
+        'use strict';
+        const canvas = document.getElementById('game'),
+            ctx = canvas.getContext('2d'),
+            W = 1200,
+            H = 700;
+        const characters = [{
+            name: 'Luma',
+            emoji: '🌿',
+            body: '#7d9f83'
+        }, {
+            name: 'Niko',
+            emoji: '🧢',
+            body: '#7189a7'
+        }, {
+            name: 'Mimi',
+            emoji: '🌼',
+            body: '#9b89a9'
+        }, {
+            name: 'Téo',
+            emoji: '🍃',
+            body: '#b48a67'
+        }];
+        const worlds = [
+            ['Bosque Tranquilo', 5200, '#dceadf', '#708a70', '#a3b99e', '🌲'],
+            ['Colinas Verdes', 6200, '#d8e6e8', '#68876e', '#a8bea2', '⛰️'],
+            ['Vale das Flores', 6500, '#e8e0e9', '#7f8d72', '#c8b9c7', '🌼'],
+            ['Caverna Azul', 6000, '#c9d7de', '#536d73', '#91aeb3', '◈'],
+            ['Jardim Antigo', 7000, '#e5e3d5', '#6d7f69', '#b2b99e', '🌿']
+        ];
+        let selected = 0,
+            unlocked = 0,
+            level = 0,
+            life = 100,
+            stamina = 100,
+            mode = 'hub',
+            paused = false,
+            cam = 0,
+            score = 0,
+            player = null,
+            plats = [],
+            stars = [],
+            enemies = [],
+            checks = [],
+            exitX = 0;
+        const keys = {
+            left: false,
+            right: false,
+            run: false,
+            jump: false
+        };
+        try {
+            const s = JSON.parse(localStorage.getItem('pequenaAventura2') || '{}');
+            selected = Math.max(0, Math.min(3, s.selected || 0));
+            unlocked = Math.max(0, Math.min(4, s.unlocked || 0));
+            life = Math.max(1, Math.min(100, s.life || 100))
+        } catch (e) {}
+
+        function save() {
+            try {
+                localStorage.setItem('pequenaAventura2', JSON.stringify({
+                    selected,
+                    unlocked,
+                    life
+                }))
+            } catch (e) {}
+        }
+
+        function show(id) {
+            document.querySelectorAll('.screen').forEach(x => x.classList.remove('active'));
+            mode = id;
+            document.getElementById('gameUI').style.display = id === 'game' ? 'block' : 'none';
+            if (id !== 'game') document.getElementById(id).classList.add('active')
+        }
+
+        function buildMenus() {
+            const cg = document.getElementById('charGrid');
+            cg.innerHTML = '';
+            characters.forEach((c, i) => {
+                const b = document.createElement('button');
+                b.className = 'card';
+                b.innerHTML = '<div class="char">' + c.emoji + '</div><b>' + c.name + '</b>';
+                b.onclick = () => {
+                    selected = i;
+                    save();
+                    buildMenus()
+                };
+                if (i === selected) b.style.outline = '3px solid #71977d';
+                cg.appendChild(b)
+            });
+            const lg = document.getElementById('levelGrid');
+            lg.innerHTML = '';
+            worlds.forEach((w, i) => {
+                const b = document.createElement('button');
+                b.className = 'card';
+                b.disabled = i > unlocked;
+                b.innerHTML = '<b>' + (i > unlocked ? '🔒 ' : '') + 'Fase ' + (i + 1) + ' — ' + w[0] + '</b><p>' + (i > unlocked ? 'Conclua a anterior para desbloquear.' : 'Exploração, plataformas e inimigos.') + '</p>';
+                if (i <= unlocked) b.onclick = () => start(i);
+                lg.appendChild(b)
+            })
+        }
+
+        function makeLevel(n) {
+            const L = worlds[n];
+            plats = [];
+            stars = [];
+            enemies = [];
+            checks = [];
+            exitX = L[1] - 130;
+            for (let x = 0; x < L[1]; x += 300) plats.push({
+                x,
+                y: 600,
+                w: 300,
+                h: 100
+            });
+            let y = 500;
+            for (let x = 260; x < L[1] - 400; x += 390) {
+                y = Math.max(445, Math.min(510, y + [-35, 20, 0, 32, -15][Math.floor(x / 390) % 5]));
+                plats.push({
+                    x,
+                    y,
+                    w: 135,
+                    h: 20
+                });
+                stars.push({
+                    x: x + 67,
+                    y: y - 22,
+                    r: 9
+                })
+            }
+            for (let x = 520; x < L[1] - 400; x += 800) stars.push({
+                x,
+                y: 560,
+                r: 9
+            });
+            for (let x = 750; x < L[1] - 450; x += 850) checks.push({
+                x,
+                used: false
+            });
+            const count = Math.floor(L[1] / 650);
+            for (let i = 0; i < count; i++) {
+                const x = 500 + i * 650;
+                enemies.push({
+                    x,
+                    y: 545,
+                    w: 38,
+                    h: 55,
+                    vx: 0,
+                    vy: 0,
+                    ground: false,
+                    detect: 650 + n * 50,
+                    speed: 1.8 + n * .15,
+                    jump: 0,
+                    left: x - 240,
+                    right: x + 300,
+                    alert: false
+                })
+            }
+        }
+
+        function start(n) {
+            if (n > unlocked) return;
+            level = n;
+            makeLevel(n);
+            player = {
+                x: 60,
+                y: 500,
+                w: 34,
+                h: 52,
+                vx: 0,
+                vy: 0,
+                ground: false,
+                facing: 1,
+                inv: 0
+            };
+            stamina = 100;
+            score = 0;
+            cam = 0;
+            paused = false;
+            Object.keys(keys).forEach(k => keys[k] = false);
+            document.getElementById('lname').textContent = (n + 1) + '. ' + worlds[n][0];
+            show('game')
+        }
+
+        function overlap(a, b) {
+            return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y
+        }
+
+        function land(o) {
+            for (const p of plats) {
+                if (o.x + o.w > p.x && o.x < p.x + p.w && o.y + o.h >= p.y && o.y + o.h <= p.y + 24 && o.vy >= 0) {
+                    o.y = p.y - o.h;
+                    o.vy = 0;
+                    o.ground = true
+                }
+            }
+        }
+
+        function damage() {
+            if (player.inv > 0) return;
+            life -= 20;
+            player.inv = 70;
+            player.vy = -7;
+            if (life <= 0) {
+                life = 100;
+                save();
+                show('over')
+            }
+        }
+
+        function update() {
+            if (mode !== 'game' || paused || !player) return;
+            let dir = (keys.right ? 1 : 0) - (keys.left ? 1 : 0),
+                run = keys.run && stamina > 0 && dir,
+                speed = run ? 7 : 4.2;
+            player.vx += (dir * speed - player.vx) * .3;
+            if (!dir) player.vx *= .78;
+            if (run) stamina = Math.max(0, stamina - .8);
+            else stamina = Math.min(100, stamina + (dir ? .16 : .8));
+            if (keys.jump) {
+                if (player.ground) {
+                    player.vy = -13;
+                    player.ground = false
+                }
+                keys.jump = false
+            }
+            player.vy += .65;
+            player.x += player.vx;
+            player.y += player.vy;
+            player.ground = false;
+            land(player);
+            if (player.y > 730) {
+                damage();
+                player.y = 450;
+                player.vy = 0
+            }
+            player.x = Math.max(0, Math.min(worlds[level][1] - player.w, player.x));
+            if (player.inv) player.inv--;
+            for (const s of stars)
+                if (!s.got && Math.hypot(player.x + 17 - s.x, player.y + 25 - s.y) < 32) {
+                    s.got = true;
+                    score += 10
+                }
+            for (const c of checks)
+                if (!c.used && Math.abs(player.x - c.x) < 30) {
+                    c.used = true;
+                    life = Math.min(100, life + 20)
+                }
+            for (const e of enemies) {
+                const dx = player.x - e.x,
+                    dy = player.y - e.y,
+                    dist = Math.hypot(dx, dy),
+                    chase = dist < e.detect;
+                e.alert = chase;
+                if (chase) {
+                    e.vx = Math.sign(dx || 1) * e.speed * (Math.abs(dx) < 180 ? 1.15 : 1);
+                    if (e.ground && e.jump <= 0 && (dy < -25 || Math.abs(dx) > 170)) {
+                        e.vy = -12.5;
+                        e.ground = false;
+                        e.jump = 45
+                    }
+                } else {
+                    if (e.x < e.left) e.vx = e.speed * .7;
+                    if (e.x > e.right) e.vx = -e.speed * .7;
+                    if (e.ground && e.jump <= 0 && Math.random() < .01) {
+                        e.vy = -10.5;
+                        e.ground = false;
+                        e.jump = 70
+                    }
+                }
+                if (e.jump > 0) e.jump--;
+                e.vy += .65;
+                e.x += e.vx;
+                e.y += e.vy;
+                e.ground = false;
+                land(e);
+                e.x = Math.max(0, Math.min(worlds[level][1] - e.w, e.x));
+                if (e.y > 730) {
+                    e.x = Math.max(0, player.x - 260);
+                    e.y = 500;
+                    e.vy = 0
+                }
+                if (overlap(player, e)) damage()
+            }
+            if (player.x >= exitX) {
+                if (level < 4) unlocked = Math.max(unlocked, level + 1);
+                save();
+                buildMenus();
+                document.getElementById('completeTitle').textContent = level === 4 ? 'Aventura concluída!' : 'Fase concluída!';
+                document.getElementById('completeText').textContent = level === 4 ? 'Você completou as 5 fases. Pontos: ' + score + '.' : worlds[level][0] + ' concluída. A próxima fase foi desbloqueada. Pontos: ' + score + '.';
+                document.getElementById('next').style.display = level < 4 ? 'inline-block' : 'none';
+                show('complete');
+                return
+            }
+            cam += (player.x - 350 - cam) * .1;
+            cam = Math.max(0, Math.min(Math.max(0, worlds[level][1] - W), cam));
+            document.getElementById('hp').style.width = life + '%';
+            document.getElementById('st').style.width = stamina + '%';
+            document.getElementById('hpN').textContent = Math.round(life);
+            document.getElementById('stN').textContent = Math.round(stamina)
+        }
+
+        function draw() {
+            const L = worlds[level];
+            ctx.fillStyle = L[2];
+            ctx.fillRect(0, 0, W, H);
+            ctx.save();
+            ctx.translate(-cam, 0);
+            for (let x = 0; x < L[1]; x += 180) {
+                ctx.fillStyle = L[4];
+                ctx.fillRect(x, 570 - (x % 80), 6, 30 + (x % 80))
+            }
+            for (const p of plats) {
+                ctx.fillStyle = L[3];
+                ctx.fillRect(p.x, p.y, p.w, p.h);
+                ctx.fillStyle = L[4];
+                ctx.fillRect(p.x, p.y, p.w, 7)
+            }
+            for (const c of checks) {
+                ctx.fillStyle = '#5d7864';
+                ctx.fillRect(c.x, 480, 7, 120);
+                ctx.fillStyle = c.used ? '#b6c9aa' : '#eed6a5';
+                ctx.beginPath();
+                ctx.arc(c.x + 10, 485, 13, 0, Math.PI * 2);
+                ctx.fill()
+            }
+            for (const s of stars)
+                if (!s.got) {
+                    ctx.fillStyle = '#d3b66c';
+                    ctx.beginPath();
+                    for (let i = 0; i < 10; i++) {
+                        const a = -Math.PI / 2 + i * Math.PI / 5,
+                            r = i % 2 ? s.r : s.r * .45;
+                        ctx.lineTo(s.x + Math.cos(a) * r, s.y + Math.sin(a) * r)
+                    }
+                    ctx.closePath();
+                    ctx.fill()
+                }
+            for (const e of enemies) {
+                ctx.fillStyle = '#879b90';
+                ctx.fillRect(e.x, e.y, e.w, e.h);
+                ctx.fillStyle = '#f1c8aa';
+                ctx.beginPath();
+                ctx.arc(e.x + 19, e.y + 12, 17, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#26352d';
+                ctx.fillRect(e.x + 11, e.y + 9, 4, 4);
+                ctx.fillRect(e.x + 24, e.y + 9, 4, 4);
+                if (e.alert) {
+                    ctx.fillStyle = '#9c6f54';
+                    ctx.font = 'bold 22px Arial';
+                    ctx.fillText('!', e.x + 15, e.y - 8)
+                }
+            }
+            if (player) {
+                const c = characters[selected];
+                ctx.globalAlpha = player.inv % 10 < 5 ? .55 : 1;
+                ctx.fillStyle = c.body;
+                ctx.fillRect(player.x, player.y + 18, 34, 34);
+                ctx.fillStyle = '#f0c7a6';
+                ctx.beginPath();
+                ctx.arc(player.x + 17, player.y + 13, 17, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#3b483f';
+                ctx.fillRect(player.x + 5, player.y + 44, 8, 8);
+                ctx.fillRect(player.x + 21, player.y + 44, 8, 8);
+                ctx.globalAlpha = 1
+            }
+            ctx.fillStyle = '#668c72';
+            ctx.fillRect(exitX, 500, 12, 100);
+            ctx.fillStyle = '#ead8ad';
+            ctx.beginPath();
+            ctx.arc(exitX + 6, 495, 18, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore()
+        }
+
+        function loop() {
+            update();
+            draw();
+            requestAnimationFrame(loop)
+        }
+
+        function bind(id, fn) {
+            document.getElementById(id).addEventListener('click', fn)
+        }
+        bind('play', () => {
+            buildMenus();
+            show('levels')
+        });
+        bind('charsBtn', () => {
+            buildMenus();
+            show('chars')
+        });
+        bind('levelsBtn', () => {
+            buildMenus();
+            show('levels')
+        });
+        bind('charBack', () => show('hub'));
+        bind('levelsBack', () => show('hub'));
+        bind('pauseBtn', () => {
+            paused = true;
+            show('pause')
+        });
+        bind('resume', () => {
+            paused = false;
+            show('game')
+        });
+        bind('pauseHub', () => show('hub'));
+        bind('overHub', () => show('hub'));
+        bind('retry', () => start(level));
+        bind('completeHub', () => show('hub'));
+        bind('next', () => {
+            if (level < 4 && level + 1 <= unlocked) start(level + 1)
+        });
+        window.addEventListener('keydown', e => {
+            if (e.code === 'ArrowLeft' || e.code === 'KeyA') keys.left = true;
+            if (e.code === 'ArrowRight' || e.code === 'KeyD') keys.right = true;
+            if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') keys.run = true;
+            if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW') {
+                if (!e.repeat) keys.jump = true;
+                e.preventDefault()
+            }
+            if (e.code === 'KeyP' && !e.repeat && mode === 'game') {
+                paused = !paused;
+                show(paused ? 'pause' : 'game')
+            }
+        });
+        window.addEventListener('keyup', e => {
+            if (e.code === 'ArrowLeft' || e.code === 'KeyA') keys.left = false;
+            if (e.code === 'ArrowRight' || e.code === 'KeyD') keys.right = false;
+            if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') keys.run = false
+        });
+        document.querySelectorAll('[data-k]').forEach(b => {
+            const k = b.dataset.k;
+            const on = e => {
+                e.preventDefault();
+                if (k === 'jump') keys.jump = true;
+                else keys[k] = true
+            };
+            const off = e => {
+                e.preventDefault();
+                if (k !== 'jump') keys[k] = false
+            };
+            b.addEventListener('pointerdown', on);
+            b.addEventListener('pointerup', off);
+            b.addEventListener('pointercancel', off);
+            b.addEventListener('pointerleave', off)
+        });
+        buildMenus();
+        loop();
+    </script>
+</body>
+
+</html>
