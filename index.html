@@ -248,18 +248,22 @@
         }
         
         @media(max-width:650px) {
-            .grid {
-                grid-template-columns: 1fr
-            }
-            .panel {
-                padding: 22px
-            }
-            .lname {
-                display: none
-            }
-            .hud {
-                min-width: 185px
-            }
+            html, body { width:100%; height:100%; overflow:hidden; }
+            .stage { width:100vw; height:100dvh; max-width:none; max-height:none; margin:0; }
+            canvas { width:100%; height:100%; }
+            .grid { grid-template-columns:1fr }
+            .panel { width:94%; max-height:90%; padding:22px; border-radius:22px; }
+            .lname { display:none }
+            .hud { min-width:0; width:min(72vw,270px); padding:8px 10px; }
+            .pause { padding:10px 11px; font-size:12px; }
+            .top { padding:max(10px,env(safe-area-inset-top)) 10px 10px; gap:7px; }
+            .pad { bottom:max(18px,env(safe-area-inset-bottom)); gap:10px; }
+            .pad.left { left:12px }
+            .pad.right { right:12px }
+            .touch { width:min(18vw,74px); height:min(18vw,74px); min-width:60px; min-height:60px; border-radius:20px; font-size:20px; box-shadow:0 5px 18px #40504422; }
+            .run { width:min(23vw,92px); font-size:11px }
+            .screen { padding:12px; }
+            .actions .btn, .menu .btn { min-height:48px; }
         }
     </style>
 </head>
@@ -775,10 +779,11 @@
                 e.preventDefault();
                 if (k !== 'jump') keys[k] = false
             };
-            b.addEventListener('pointerdown', on);
+            b.addEventListener('pointerdown', e => { try { b.setPointerCapture(e.pointerId) } catch (_) {} on(e); });
             b.addEventListener('pointerup', off);
             b.addEventListener('pointercancel', off);
-            b.addEventListener('pointerleave', off)
+            b.addEventListener('pointerleave', off);
+            b.addEventListener('pointerout', off)
         });
         buildMenus();
         loop();
